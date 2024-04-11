@@ -1,0 +1,51 @@
+[package]
+authors = ["omnect@conplement.de"]
+build = "src/build.rs"
+description = "This service allows remote updates via iothub-device-update."
+edition = "2021"
+homepage = "https://www.omnect.io/home"
+license = "MIT OR Apache-2.0"
+name = "omnect-update-service"
+readme = "README.md"
+repository = "git@github.com:omnect/omnect-update-service.git"
+version = "0.1.0"
+
+# ToDo: rm if meta-omnect integration done
+[[bin]]
+name = "AducIotAgent"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0"
+azure-iot-sdk = { git = "https://github.com/omnect/azure-iot-sdk.git", tag = "0.11.10", features = [
+  "module_client",
+] }
+env_logger = "0.10"
+futures-executor = "0.3"
+futures-util = "0.3"
+lazy_static = "1.4"
+log = "0.4"
+log-panics = { version = "2", features = ["with-backtrace"] }
+sd-notify = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_with = "2.2"
+signal-hook = "0.3"
+signal-hook-tokio = { version = "0.3", features = ["futures-v0_3"] }
+systemd-zbus = "0.1"
+time = { version = "=0.3.23", features = ["formatting"] }
+tokio = "1"
+zbus = { version = "3", default-features = false, features = ["tokio"] }
+
+[dev-dependencies]
+cp_r = "0.5"
+mockall = "0.11"
+rand = "0.8"
+regex = "1"
+stdext = "0.3"
+omnect-update-service = { path = ".", features = ["mock"] }
+tempfile = "3.6"
+
+[features]
+default = []
+mock = []
