@@ -1,4 +1,3 @@
-
 use crate::systemd::WatchdogManager;
 use anyhow::Result;
 use azure_iot_sdk::client::*;
@@ -33,7 +32,8 @@ impl Twin {
         }
     }
 
-    pub async fn init(&mut self) -> Result<()> {        // report version
+    pub async fn init(&mut self) -> Result<()> {
+        // report version
         self.tx_reported_properties
             .send(json!({
                 "module-version": env!("CARGO_PKG_VERSION"),
@@ -102,28 +102,9 @@ impl Twin {
         Ok(())
     }
 
-    async fn handle_direct_method(
-        &self,
-        (method_name, payload, tx_result): (String, serde_json::Value, DirectMethodResult),
-    ) -> Result<()> {
-        info!("handle_direct_method: {method_name} with payload: {payload}");
-
-        let result = match method_name.as_str() {
-            "factory_reset" => Ok(Some(json!({}))),
-            &_ => todo!(),
-        };
-
-        if tx_result.send(result).is_err() {
-            error!("handle_direct_method: receiver dropped");
-        }
-
-        Ok(())
-    }
-
-    pub async fn run(connection_string: Option<&str>) -> Result<()> {
+    pub async fn run() -> Result<()> {
         let (tx_connection_status, mut rx_connection_status) = mpsc::channel(100);
         let (tx_twin_desired, mut rx_twin_desired) = mpsc::channel(100);
-        let (tx_direct_method, mut rx_direct_method) = mpsc::channel(100);
 
         let mut signals = Signals::new(TERM_SIGNALS)?;
 
@@ -135,32 +116,19 @@ impl Twin {
             None
         };
 
-        let client = match IotHubClient::client_type() {
-            _ if connection_string.is_some() => IotHubClient::from_connection_string(
-                connection_string.unwrap(),
-                Some(tx_connection_status.clone()),
-                Some(tx_twin_desired.clone()),
-                Some(tx_direct_method.clone()),
-                None,
-            )?,
-            ClientType::Device | ClientType::Module => {
-                IotHubClient::from_identity_service(
-                    Some(tx_connection_status.clone()),
-                    Some(tx_twin_desired.clone()),
-                    Some(tx_direct_method.clone()),
-                    None,
-                )
-                .await?
-            }
-            ClientType::Edge => IotHubClient::from_edge_environment(
-                Some(tx_connection_status.clone()),
-                Some(tx_twin_desired.clone()),
-                Some(tx_direct_method.clone()),
-                None,
-            )?,
-        };
+        let builder = IotHubClient::builder()
+            .observe_connection_state(tx_connection_status)
+            .observe_desired_properties(tx_twin_desired);
 
-        let mut twin = Self::new(client);
+        let mut twin = if cfg!(feature = "mock") {
+            Self::new(
+                builder
+                    .build_module_client(&std::env::var("CONNECTION_STRING").unwrap())
+                    .unwrap(),
+            )
+        } else {
+            Self::new(builder.build_module_client_from_identity().await.unwrap())
+        };
 
         loop {
             select! (
@@ -181,9 +149,6 @@ impl Twin {
                 },
                 reported = twin.rx_reported_properties.recv() => {
                     twin.iothub_client.twin_report(reported.unwrap())?
-                },
-                direct_methods = rx_direct_method.recv() => {
-                    twin.handle_direct_method(direct_methods.unwrap()).await?
                 },
             );
         }

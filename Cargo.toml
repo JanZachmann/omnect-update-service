@@ -17,7 +17,10 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow = "1.0"
-azure-iot-sdk = { git = "https://github.com/omnect/azure-iot-sdk.git", tag = "0.11.10", features = [
+#azure-iot-sdk = { git = "https://github.com/omnect/azure-iot-sdk.git", tag = "0.11.10", features = [
+#  "module_client",
+#] }
+azure-iot-sdk = { path = "../azure-iot-sdk", features = [
   "module_client",
 ] }
 env_logger = "0.10"

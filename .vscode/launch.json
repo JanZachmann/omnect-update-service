@@ -25,7 +25,8 @@
       "env": {
         "RUST_BACKTRACE": "1",
         "RUST_LOG": "trace",
-        "AZURE_SDK_DO_WORK_FREQUENCY_IN_MS": "10"
+        "AZURE_SDK_DO_WORK_FREQUENCY_IN_MS": "10",
+        "CONNECTION_STRING": "HostName=omnect-cp-dev-iot-hub.azure-devices.net;DeviceId=test-jza;ModuleId=AducIotAgent;SharedAccessKey=LLasex8ndfxepk2du9hm4hqL3GH4AiXZMccUxELHxoI="
       }
     },
     {

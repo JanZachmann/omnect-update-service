@@ -41,8 +41,7 @@ async fn main() {
     );
     info!("azure sdk version: {}", IotHubClient::sdk_version_string());
 
-    if let Err(e) = Twin::run(Some("HostName=omnect-cp-dev-iot-hub.azure-devices.net;DeviceId=test-jza;ModuleId=AducIotAgent;SharedAccessKey=LLasex8ndfxepk2du9hm4hqL3GH4AiXZMccUxELHxoI=")).await {
-    //if let Err(e) = Twin::run(None).await {
+    if let Err(e) = Twin::run().await {
         error!("application error: {e:#}");
 
         process::exit(1);
