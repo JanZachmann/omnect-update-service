@@ -1,4 +1,6 @@
 use crate::systemd::WatchdogManager;
+mod adu;
+use crate::twin::adu::Adu;
 use anyhow::Result;
 use azure_iot_sdk::client::*;
 use futures_util::{FutureExt, StreamExt};
@@ -18,21 +20,25 @@ pub struct Twin {
     authenticated_once: bool,
     tx_reported_properties: mpsc::Sender<serde_json::Value>,
     rx_reported_properties: mpsc::Receiver<serde_json::Value>,
+    adu: Adu,
 }
 
 impl Twin {
-    pub fn new(client: Box<dyn IotHub>) -> Self {
+    pub fn new(client: Box<dyn IotHub>) -> Result<Self> {
         let (tx_reported_properties, rx_reported_properties) = mpsc::channel(100);
 
-        Twin {
+        let adu = Adu::new(tx_reported_properties.clone())?;
+
+        Ok(Twin {
             iothub_client: client,
             tx_reported_properties: tx_reported_properties.clone(),
             rx_reported_properties,
             authenticated_once: false,
-        }
+            adu,
+        })
     }
 
-    pub async fn init(&mut self) -> Result<()> {
+    async fn init(&mut self) -> Result<()> {
         // report version
         self.tx_reported_properties
             .send(json!({
@@ -41,7 +47,7 @@ impl Twin {
             }))
             .await?;
 
-        Ok(())
+        self.adu.report_initial_state().await
     }
 
     async fn handle_connection_status(&mut self, auth_status: AuthenticationStatus) -> Result<()> {
@@ -50,6 +56,7 @@ impl Twin {
         match auth_status {
             AuthenticationStatus::Authenticated => {
                 self.authenticated_once = true;
+                self.init().await?;
             }
             AuthenticationStatus::Unauthenticated(reason) => {
                 anyhow::ensure!(
@@ -118,16 +125,17 @@ impl Twin {
 
         let builder = IotHubClient::builder()
             .observe_connection_state(tx_connection_status)
-            .observe_desired_properties(tx_twin_desired);
+            .observe_desired_properties(tx_twin_desired)
+            .pnp_model_id("dtmi:azure:iot:deviceUpdateModel;3");
 
         let mut twin = if cfg!(feature = "mock") {
             Self::new(
                 builder
                     .build_module_client(&std::env::var("CONNECTION_STRING").unwrap())
                     .unwrap(),
-            )
+            )?
         } else {
-            Self::new(builder.build_module_client_from_identity().await.unwrap())
+            Self::new(builder.build_module_client_from_identity().await.unwrap())?
         };
 
         loop {
@@ -155,7 +163,7 @@ impl Twin {
     }
 }
 
-pub fn notify_some_interval(
+fn notify_some_interval(
     interval: &mut Option<Interval>,
 ) -> impl Future<Output = tokio::time::Instant> + '_ {
     match interval.as_mut() {
