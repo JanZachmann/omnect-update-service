@@ -38,13 +38,32 @@ struct DeviceInformation {
     totalMemory: u32,
     totalStorage: u32,
 }
-/*
 
-*/
+#[derive(Serialize)]
+struct DeviceProperties {
+    manufacturer: String,
+    model: String,
+    compatibilityid: String,
+    contractModelId: String,
+    aduVer: String,
+}
+
+#[derive(Serialize)]
+struct Agent {
+    deviceProperties: DeviceProperties,
+    compatPropertyNames: String,
+}
+
+#[derive(Serialize)]
+struct DeviceUpdate {
+    __t: String,
+    agent: Agent,
+}
 
 pub struct Adu {
     tx_reported_properties: Sender<serde_json::Value>,
     device_info: DeviceInformation,
+    device_update: DeviceUpdate,
 }
 
 impl Adu {
@@ -83,20 +102,58 @@ impl Adu {
             totalStorage: 654321,
         };
 
+        let device_properties = DeviceProperties {
+            manufacturer: du_config["agents"]["manufacturer"]
+                .as_str()
+                .unwrap()
+                .to_owned(),
+            model: du_config["agents"]["model"].as_str().unwrap().to_owned(),
+            compatibilityid: du_config["agents"]["additionalDeviceProperties"]["compatibilityid"]
+                .as_str()
+                .unwrap()
+                .to_owned(),
+            contractModelId: "dtmi:azure:iot:deviceUpdateContractModel;3".to_owned(),
+            aduVer: "DU;agent/1.1.0".to_owned(),
+        };
+
+        let agent = Agent {
+            deviceProperties: device_properties,
+            compatPropertyNames: du_config["compatPropertyNames"]
+                .as_str()
+                .unwrap()
+                .to_owned(),
+        };
+
+        let device_update = DeviceUpdate {
+            __t: "c".to_owned(),
+            agent,
+        };
+
         Ok(Adu {
             tx_reported_properties,
             device_info,
+            device_update,
         })
     }
 
     pub async fn report_initial_state(&self) -> Result<()> {
-        self.report_device_info().await
+        self.report_device_info().await?;
+        self.report_device_update().await
     }
 
     async fn report_device_info(&self) -> Result<()> {
         self.tx_reported_properties
             .send(json!({
                 "deviceInformation": serde_json::to_value(&self.device_info)?
+            }))
+            .await
+            .context("report_consent: report_impl")
+    }
+
+    async fn report_device_update(&self) -> Result<()> {
+        self.tx_reported_properties
+            .send(json!({
+                "deviceUpdate": serde_json::to_value(&self.device_update)?
             }))
             .await
             .context("report_consent: report_impl")
