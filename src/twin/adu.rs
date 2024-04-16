@@ -102,13 +102,15 @@ impl Adu {
             totalStorage: 654321,
         };
 
+        // ToDo 1. iterarte over agents and search for "us"
+        // ToDo 2. adapt agent "name" and "runas"?
         let device_properties = DeviceProperties {
-            manufacturer: du_config["agents"]["manufacturer"]
+            manufacturer: du_config["agents"][0]["manufacturer"]
                 .as_str()
                 .unwrap()
                 .to_owned(),
-            model: du_config["agents"]["model"].as_str().unwrap().to_owned(),
-            compatibilityid: du_config["agents"]["additionalDeviceProperties"]["compatibilityid"]
+            model: du_config["agents"][0]["model"].as_str().unwrap().to_owned(),
+            compatibilityid: du_config["agents"][0]["additionalDeviceProperties"]["compatibilityid"]
                 .as_str()
                 .unwrap()
                 .to_owned(),
